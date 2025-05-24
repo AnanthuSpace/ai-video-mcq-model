@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 from whisper_utils import transcribe_video
 from mcq_generator import generate_mcqs
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -13,7 +14,10 @@ async def transcribe(file: UploadFile = File(...)):
     transcript = transcribe_video(file_path)
     return {"transcript": transcript}
 
+class TextInput(BaseModel):
+    text: str
+
 @app.post("/generate-mcq")
-def get_mcq(text: str):
-    mcqs = generate_mcqs(text)
+def get_mcq(data: TextInput):
+    mcqs = generate_mcqs(data.text)
     return {"mcqs": mcqs}
