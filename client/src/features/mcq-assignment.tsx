@@ -10,15 +10,15 @@ import {
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  CheckCircle,
-  XCircle,
-  ArrowLeft,
-  ArrowRight,
-  Send,
-} from "lucide-react";
-import type { MCQQuestion } from "./video-upload-with-assignment";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/CustomRadioGroup";
+import { CheckCircle, XCircle, Send, ArrowLeft } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
+interface MCQQuestion {
+  _id: string;
+  question: string;
+  options: string[];
+  answer: string;
+}
 
 interface MCQAssignmentProps {
   questions: MCQQuestion[];
@@ -28,7 +28,7 @@ interface MCQAssignmentProps {
 
 interface Answer {
   questionId: string;
-  selectedOption: number;
+  selectedOption: string;
   isCorrect: boolean;
 }
 
@@ -44,40 +44,29 @@ export default function MCQAssignment({
   onComplete,
   onBack,
 }: MCQAssignmentProps) {
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [showResults, setShowResults] = useState(false);
   const [results, setResults] = useState<AssignmentResults | null>(null);
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-  const isLastQuestion = currentQuestionIndex === questions.length - 1;
-  const hasAnsweredCurrent = answers[currentQuestion?.QuestionId] !== undefined;
-
-  const handleAnswerSelect = (questionId: string, optionIndex: number) => {
+  const handleAnswerSelect = (questionId: string, option: string) => {
     setAnswers((prev) => ({
       ...prev,
-      [questionId]: optionIndex,
+      [questionId]: option,
     }));
   };
 
-  const handleNext = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((prev) => prev - 1);
-    }
-  };
-
   const handleSubmit = () => {
+    // First check if all questions are answered
+    if (Object.keys(answers).length !== questions.length) {
+      // You can show an alert or toast message here
+      alert("Please answer all questions before submitting");
+      return;
+    }
+
     const assignmentAnswers: Answer[] = questions.map((question) => ({
-      questionId: question.QuestionId,
-      selectedOption: answers[question.QuestionId] ?? -1,
-      isCorrect: answers[question.QuestionId] === question.correctAnswer,
+      questionId: question._id,
+      selectedOption: answers[question._id] ?? "",
+      isCorrect: answers[question._id] === question.answer,
     }));
 
     const score = assignmentAnswers.filter((answer) => answer.isCorrect).length;
@@ -132,15 +121,17 @@ export default function MCQAssignment({
             <div className="space-y-4">
               {questions.map((question, index) => {
                 const answer = results.answers.find(
-                  (a) => a.questionId === question.QuestionId
+                  (a) => a.questionId === question._id
                 );
                 const isCorrect = answer?.isCorrect ?? false;
-                const selectedOption = answer?.selectedOption ?? -1;
+                const selectedOption = answer?.selectedOption ?? "";
 
                 return (
                   <Card
-                    key={question.QuestionId}
-                    className="border-l-4 border-l-muted"
+                    key={question._id}
+                    className={`border-l-4 ${
+                      isCorrect ? "border-l-green-500" : "border-l-red-500"
+                    }`}
                   >
                     <CardContent className="pt-4">
                       <div className="flex items-start gap-3">
@@ -160,35 +151,27 @@ export default function MCQAssignment({
                               <div
                                 key={optionIndex}
                                 className={`p-2 rounded ${
-                                  optionIndex === question.correctAnswer
+                                  option === question.answer
                                     ? "bg-green-50 text-green-700 border border-green-200"
-                                    : optionIndex === selectedOption &&
-                                      !isCorrect
+                                    : option === selectedOption && !isCorrect
                                     ? "bg-red-50 text-red-700 border border-red-200"
                                     : "bg-muted/50"
                                 }`}
                               >
                                 {option}
-                                {optionIndex === question.correctAnswer && (
+                                {option === question.answer && (
                                   <span className="ml-2 text-xs font-medium">
                                     ✓ Correct
                                   </span>
                                 )}
-                                {optionIndex === selectedOption &&
-                                  !isCorrect && (
-                                    <span className="ml-2 text-xs font-medium">
-                                      ✗ Your answer
-                                    </span>
-                                  )}
+                                {option === selectedOption && !isCorrect && (
+                                  <span className="ml-2 text-xs font-medium">
+                                    ✗ Your answer
+                                  </span>
+                                )}
                               </div>
                             ))}
                           </div>
-                          {question.explanation && (
-                            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
-                              <strong>Explanation:</strong>{" "}
-                              {question.explanation}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -209,7 +192,7 @@ export default function MCQAssignment({
     );
   }
 
-  if (!currentQuestion) {
+  if (questions.length === 0) {
     return (
       <Alert>
         <AlertDescription>
@@ -223,103 +206,51 @@ export default function MCQAssignment({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>
-              Question {currentQuestionIndex + 1} of {questions.length}
-            </CardTitle>
-            <span className="text-sm text-muted-foreground">
-              {Math.round(progress)}% Complete
-            </span>
-          </div>
-          <Progress value={progress} className="h-2" />
+          <CardTitle className="text-center">
+            MCQ Assignment ({questions.length} Questions)
+          </CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-6">
-          <h3 className="text-lg font-medium leading-relaxed">
-            {currentQuestion.question}
-          </h3>
-
-          <RadioGroup
-            value={answers[currentQuestion.QuestionId]?.toString() || ""}
-            onValueChange={(value) =>
-              handleAnswerSelect(
-                currentQuestion.QuestionId,
-                Number.parseInt(value)
-              )
-            }
-          >
-            {currentQuestion.options.map((option, index) => (
-              <div
-                key={index}
-                className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-              >
-                <RadioGroupItem
-                  value={index.toString()}
-                  id={`option-${index}`}
-                />
-                <Label
-                  htmlFor={`option-${index}`}
-                  className="flex-1 cursor-pointer"
-                >
-                  {option}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button
-            variant="outline"
-            onClick={handlePrevious}
-            disabled={currentQuestionIndex === 0}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Previous
-          </Button>
-
-          <div className="flex gap-2">
-            {isLastQuestion ? (
-              <Button
-                onClick={handleSubmit}
-                disabled={Object.keys(answers).length !== questions.length}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Submit Assignment
-              </Button>
-            ) : (
-              <Button onClick={handleNext} disabled={!hasAnsweredCurrent}>
-                Next
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            )}
-          </div>
-        </CardFooter>
-      </Card>
-
-      <Card>
-        <CardContent className="pt-4">
-          <div className="flex flex-wrap gap-2">
-            {questions.map((_, index) => (
-              <Button
-                key={index}
-                variant={
-                  index === currentQuestionIndex
-                    ? "default"
-                    : answers[questions[index].QuestionId] !== undefined
-                    ? "secondary"
-                    : "outline"
+          {questions.map((question, index) => (
+            <div key={question._id} className="space-y-3">
+              <h3 className="font-medium text-base">
+                {index + 1}. {question.question}
+              </h3>
+              <RadioGroup
+                value={answers[question._id] ?? ""}
+                onValueChange={(value) =>
+                  handleAnswerSelect(question._id, value)
                 }
-                size="sm"
-                onClick={() => setCurrentQuestionIndex(index)}
-                className="w-10 h-10"
               >
-                {index + 1}
-              </Button>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Click on any question number to navigate directly to it
-          </p>
+                {question.options.map((option) => {
+                  const optionId = `${question._id}-${option}`;
+                  return (
+                    <div
+                      key={optionId}
+                      className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <RadioGroupItem value={option} id={optionId} />
+                      <Label
+                        htmlFor={optionId}
+                        className="cursor-pointer flex-1"
+                      >
+                        {option}
+                      </Label>
+                    </div>
+                  );
+                })}
+              </RadioGroup>
+            </div>
+          ))}
         </CardContent>
+
+        <CardFooter className="flex justify-end">
+          <Button onClick={handleSubmit}>
+            <Send className="h-4 w-4 mr-2" />
+            Submit Assignment
+          </Button>
+        </CardFooter>
       </Card>
     </div>
   );

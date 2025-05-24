@@ -34,7 +34,7 @@ export interface MCQQuestion {
   QuestionId: string;
 }
 
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+const MAX_FILE_SIZE = 100 * 1024 * 1024; 
 const ALLOWED_FILE_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 
 export default function VideoUploadWithAssignment() {
